@@ -1,7 +1,7 @@
 var express = require('express');
 var router = express.Router();
 const md5 = require('blueimp-md5');
-const {UserModel} = require('../db/models');
+const {UserModel , ChatModel} = require('../db/models');
 /* GET home page. */
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
@@ -88,6 +88,41 @@ router.get('/userlist',function (req,res) {
     UserModel.find({type} , filter ,function (err,users) {
         return res.send({code:0,data:users})
     })
+})
+
+//获取当前用户所有相关的聊天信息列表
+router.get('/msglist',function (req,res) {
+  //获取cookie中的userid
+    const userid = req.cookies.userid
+//    查询所有的user文档数据，获取的users是一个对象
+    UserModel.find(function (err,userDocs) {
+      const users = userDocs.reduce((users,user)=>{
+            users[user._id] = {username: user.username, header: user.header}
+            return users
+        },{})
+        ChatModel.find({'$or':[{from:userid},{to:userid}]},filter,function (err, chatMsgs) {
+            res.send({code:0,data:{users , chatMsgs}})
+        })
+    })
+    /*查询userid相关的所有聊天信息
+        参数1: 查询条件
+        参数2: 过滤条件
+        参数3: 回调函数
+    */
+
+})
+/*
+修改指定消息为已读
+ */
+router.post('/readmsg',function (req,res) {
+  //  得到请求中的from和to
+  const from = req.body.from
+    // 这个to的获取为什么直接从cookie中获取?
+  const to = req.cookies.userid
+   ChatModel.update({from , to , read:false} ,{read:true},{multi:true},function (err,doc) {
+       console.log('/readmsg', doc)
+       res.send({code: 0, data: doc.nModified}) // 更新的数量
+   })
 })
 
 module.exports = router;
